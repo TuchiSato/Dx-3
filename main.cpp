@@ -2,56 +2,25 @@
 #include "game.h"		//ゲーム全体のヘッダファイル
 #include "keyboard.h"	//キーボードの処理
 #include "FPS.h"		//FPSの処理
+#include "mouse.h"		//マウスの処理
+#include "shape.h"		//図形の処理
 
-//構造体の定義
+//独自のマクロ定義
 
-//画像の構造体
-struct IMAGE
+//独自の列挙型の定義
+enum MUKI
 {
-	int handle = -1;	//画像のハンドル(管理番号)
-	char path[255];		//画像の場所(パス)
+	muki_none,
+	muki_ue,
+	muki_hidari,
+	muki_shita,
+	muki_migi
+};//向きのサンプル
 
-	int x;				//X位置
-	int y;				//Y位置
-	int width;			//幅
-	int height;			//高さ
+//独自の構造体の定義
 
-	BOOL IsDraw = FALSE;//画像が描画できる？
-};
 
-//キャラクタの構造体
-struct CHARACTOR
-{
-	IMAGE img;			//画像構造体
-	int speed = 1;		//移動速度	
-	RECT coll;			//当たり判定の領域(四角)
-};
-
-//動画の構造体
-struct MOVIE
-{
-	int handle = -1;	//動画のハンドル
-	char path[255];		//動画のパス
-
-	int x;				//X位置
-	int y;				//Y位置
-	int width;			//幅
-	int height;			//高さ
-
-	int Volume = 255;	//ボリューム(最小)0～255(最大)　
-};
-
-//音楽の構造体
-struct AUDIO
-{
-	int handle = -1;	//音楽のハンドル
-	char path[255];		//音楽のパス
-
-	int Volume = -1;	//ボリューム（MIN 0 ～ 255 MAX）
-	int playType = -1;	//BGM or SE
-};
-
-//グローバル変数
+//★★★ゲーム共通のグローバル変数★★★
 //シーンを管理する変数
 GAME_SCENE GameScene;		//現在のゲームのシーン
 GAME_SCENE OldGameScene;	//前回のゲームのシーン
@@ -73,8 +42,17 @@ int fadeOutCntMax = fadeTimeMax;	//フェードアウトのカウンタMAX
 int fadeInCntInit = fadeTimeMax;	//初期値
 int fadeInCnt = fadeInCntInit;		//フェードアウトのカウンタ
 int fadeInCntMax = fadeTimeMax;		//フェードアウトのカウンタMAX
+//★★★ゲーム共通のグローバル変数★★★
 
-//プロトタイプ宣言
+
+//独自のグローバル変数
+
+
+//★★★ゲーム共通のプロトタイプ宣言★★★
+BOOL GameLoad(VOID);	//データを読込
+VOID GameInit(VOID);	//データの初期化
+VOID GameDelete(VOID);	//データを削除
+
 VOID Title(VOID);		//タイトル画面
 VOID TitleProc(VOID);	//タイトル画面(処理)
 VOID TitleDraw(VOID);	//タイトル画面(描画)
@@ -91,23 +69,36 @@ VOID Change(VOID);		//切り替え画面
 VOID ChangeProc(VOID);	//切り替え画面(処理)
 VOID ChangeDraw(VOID);	//切り替え画面(描画)
 
-VOID ChangeScene(GAME_SCENE scene);	//シーン切り替え
+VOID ChangeScene(GAME_SCENE scene);		//シーン切り替え
+BOOL OnCollRect(RECT a, RECT b);		//矩形と矩形の当たり判定
+VOID CollUpdateImage(IMAGE* img);		//画像の当たり判定の更新
+VOID CollUpdateDivImage(DIVIMAGE* div);	//分割画像の当たり判定の更新
+BOOL LoadImageMem(IMAGE* image, const char* path);										//ゲームの画像を読み込み
+BOOL LoadAudio(AUDIO* audio, const char* path, int Volume, int playType);				//ゲームの音楽を読み込み
+BOOL LoadImageDivMem(DIVIMAGE* div, const char* path, int bunkatuYoko, int bunkatuTate);//ゲームの画像の分割読み込み
 
-VOID CollUpdatePlayer(CHARACTOR* chara);	//当たり判定の領域を更新
-VOID CollUpdate(CHARACTOR* chara);			//当たり判定
+VOID PlayAudio(AUDIO audio);					//音楽再生
+int GetVolumeAudio(AUDIO audio);				//音楽のボリューム取得
+VOID SetVolumeAudio(AUDIO* audio, int vol);		//音楽のボリューム設定
+VOID ChangeVolumeAudio(AUDIO* audio, int vol);	//音楽のボリューム変更
+VOID StopAudio(AUDIO* audio);					//音楽停止
 
-BOOL OnCollRect(RECT a, RECT b);			//矩形と矩形の当たり判定
+VOID DrawImage(IMAGE image);					//画像描画
+VOID DrawRect(RECT r, unsigned int color, bool b);	//RECT描画
+VOID DrawDivImage(DIVIMAGE* image);				//分割画像の描画
+VOID DrawDivImageChara(DIVIMAGE* image);		//分割画像の描画
 
-BOOL GameLoad(VOID);	//ゲームのデータを読み込み
+//★★★ゲーム共通のプロトタイプ宣言★★★
 
-BOOL LoadImageMem(IMAGE* image, const char* path);							//ゲームの画像を読み込み
-BOOL LoadAudio(AUDIO* audio, const char* path, int volume, int playType);	//ゲームの音楽を読み込み
+//サンプルの素材
+IMAGE sampleImg;
+DIVIMAGE sampleDivImg;
+DIVIMAGE samplePlayerImg;
+MUKI muki = muki_shita;		//サンプル向き
 
-VOID GameInit(VOID);	//ゲームのデータの初期化
+AUDIO sampleBGM;
 
 // プログラムは WinMain から始まります
-//Windowsのプログラミング方法 = (WinAPI)で動いている！
-//DxLibは、DirectXという、ゲームプログラミングをかんたんに使える仕組み
 int WINAPI WinMain(
 	HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
@@ -138,12 +129,11 @@ int WINAPI WinMain(
 	//最初のシーンは、タイトル画面から
 	GameScene = GAME_SCENE_TITLE;
 
-	//ゲーム全体の初期化
-
 	//ゲーム読み込み
 	if (!GameLoad())
 	{
 		//データの読み込みに失敗したとき
+		GameDelete();	//データ削除
 		DxLib_End();	//DxLib終了
 		return -1;		//異常終了
 	}
@@ -159,6 +149,9 @@ int WINAPI WinMain(
 
 		//キーボード入力の更新
 		AllKeyUpdate();
+
+		//マウス入力の更新
+		MouseUpdate();
 
 		//FPS値の更新
 		FPSUpdate();
@@ -202,6 +195,9 @@ int WINAPI WinMain(
 			}
 		}
 
+		//現在のマウスの情報を描画
+		MouseDraw();
+
 		//FPS値を描画
 		FPSDraw();
 
@@ -210,6 +206,9 @@ int WINAPI WinMain(
 
 		ScreenFlip();	//ダブルバッファリングした画面を描画
 	}
+
+	//データ削除
+	GameDelete();
 
 	//ＤＸライブラリ使用の終了処理
 	DxLib_End();
@@ -223,74 +222,39 @@ int WINAPI WinMain(
 /// <returns>読み込めたらTRUE / 読み込めなかったらFALSE</returns>
 BOOL GameLoad(VOID)
 {
+	//サンプル画像を読み込み
+	if (LoadImageMem(&sampleImg, ".\\Image\\player.png") == FALSE) { return FALSE; }
+
+	//サンプル分割画像を読み込み
+	if (LoadImageDivMem(&sampleDivImg, ".\\Image\\baku1.png", 8, 2) == FALSE) { return FALSE; }
+
+	//サンプル分割画像を読み込み
+	if (LoadImageDivMem(&samplePlayerImg, ".\\Image\\charachip.png", 3, 4) == FALSE) { return FALSE; }
+
+	//サンプルBGMを読み込み
+	if (LoadAudio(&sampleBGM, ".\\Audio\\ブリキのPARADE.mp3", 128, DX_PLAYTYPE_LOOP) == FALSE) { return FALSE; }
 
 	return TRUE;	//全て読み込みた！
 }
 
 /// <summary>
-/// 画像をメモリに読み込み
+/// ゲームのデータを削除
 /// </summary>
-/// <param name="image">画像構造体のアドレス</param>
-/// <param name="path">画像のパス</param>
-/// <returns></returns>
-BOOL LoadImageMem(IMAGE* image, const char* path)
+VOID GameDelete(VOID)
 {
-	//ゴールの画像を読み込み
-	strcpyDx(image->path, path);	//パスのコピー
-	image->handle = LoadGraph(image->path);	//画像の読み込み
+	//サンプル画像を削除
+	DeleteGraph(sampleImg.handle);
 
-	//画像が読み込めなかったときは、エラー(-1)が入る
-	if (image->handle == -1)
-	{
-		MessageBox(
-			GetMainWindowHandle(),	//メインのウィンドウハンドル
-			image->path,			//メッセージ本文
-			"画像読み込みエラー！",		//メッセージタイトル
-			MB_OK					//ボタン
-		);
+	//サンプル分割画像を削除
+	for (int i = 0; i < sampleDivImg.DivMax; i++) { DeleteGraph(sampleDivImg.handle[i]); }
 
-		return FALSE;	//読み込み失敗
-	}
+	//サンプル分割画像を削除
+	for (int i = 0; i < samplePlayerImg.DivMax; i++) { DeleteGraph(samplePlayerImg.handle[i]); }
 
-	//画像の幅と高さを取得
-	GetGraphSize(image->handle, &image->width, &image->height);
+	//サンプル音楽を削除
+	DeleteMusicMem(sampleBGM.handle);
 
-	//読み込めた
-	return TRUE;
-}
-
-/// <summary>
-/// 音楽をメモリに読み込み
-/// </summary>
-/// <param name="audio">Audio構造体変数のアドレス</param>
-/// <param name="path">Audioの音楽パス</param>
-/// <param name="volume">ボリューム</param>
-/// <param name="playType">DX_PLAYTYPE_LOOP or DX_PLAYTYPE_BACK</param>
-/// <returns></returns>
-BOOL LoadAudio(AUDIO* audio, const char* path, int volume, int playType)
-{
-	//音楽の読み込み
-	strcpyDx(audio->path, path);					//パスのコピー
-	audio->handle = LoadSoundMem(audio->path);		//音楽の読み込み
-
-	//音楽が読み込めなかったときは、エラー(-1)が入る
-	if (audio->handle == -1)
-	{
-		MessageBox(
-			GetMainWindowHandle(),	//メインのウィンドウハンドル
-			audio->path,			//メッセージ本文
-			"音楽読み込みエラー！",		//メッセージタイトル
-			MB_OK					//ボタン
-		);
-
-		return FALSE;	//読み込み失敗
-	}
-
-	//その他の設定
-	audio->Volume = volume;
-	audio->playType = playType;
-
-	return TRUE;
+	return;
 }
 
 /// <summary>
@@ -300,6 +264,10 @@ BOOL LoadAudio(AUDIO* audio, const char* path, int volume, int playType)
 VOID GameInit(VOID)
 {
 
+	//ゲーム内時間リセット
+	ResetGameTime();
+
+	return;
 }
 
 /// <summary>
@@ -331,7 +299,6 @@ VOID Title(VOID)
 /// </summary>
 VOID TitleProc(VOID)
 {
-
 	if (KeyClick(KEY_INPUT_RETURN) == TRUE)
 	{
 		//シーン切り替え
@@ -346,6 +313,18 @@ VOID TitleProc(VOID)
 		return;
 	}
 
+	PlayAudio(sampleBGM);	//BGMを鳴らす
+
+	//プレイヤーの動作サンプル
+	{
+		muki = muki_none;	//最初は向きを無しにする
+		if (KeyDown(KEY_INPUT_W)) { muki = muki_ue; samplePlayerImg.y--; }
+		else if (KeyDown(KEY_INPUT_S)) { muki = muki_shita; samplePlayerImg.y++; }
+		if (KeyDown(KEY_INPUT_A)) { muki = muki_hidari; samplePlayerImg.x--; }
+		else if (KeyDown(KEY_INPUT_D)) { muki = muki_migi; samplePlayerImg.x++; }
+		CollUpdateDivImage(&samplePlayerImg);	//当たり判定の更新
+	}
+
 	return;
 }
 
@@ -354,6 +333,21 @@ VOID TitleProc(VOID)
 /// </summary>
 VOID TitleDraw(VOID)
 {
+
+	DrawImage(sampleImg);				//サンプル画像の描画
+	DrawDivImage(&sampleDivImg);		//サンプル分割画像の描画
+
+	//プレイヤーの動作サンプル
+	{
+		DrawDivImageChara(&samplePlayerImg);//サンプル分割画像の描画
+	}
+
+	//ゲーム内時間
+	DrawFormatString(500, 50, GetColor(0, 0, 0), "TIME:%3.2f", GetGameTime());
+
+	//現在の日付と時刻
+	DrawFormatString(500, 70, GetColor(0, 0, 0), "DATE:%4d/%2d/%2d %2d:%2d:%2d", fps.NowDataTime.Year, fps.NowDataTime.Mon, fps.NowDataTime.Day, fps.NowDataTime.Hour, fps.NowDataTime.Min, fps.NowDataTime.Sec);
+
 	DrawString(0, 0, "タイトル画面", GetColor(0, 0, 0));
 	return;
 }
@@ -378,7 +372,6 @@ VOID PlayProc(VOID)
 	{
 		//プレイ画面に切り替え
 		ChangeScene(GAME_SCENE_END);
-
 		return;
 	}
 
@@ -536,31 +529,31 @@ VOID ChangeDraw(VOID)
 }
 
 /// <summary>
-/// 当たり判定の領域更新（プレイヤー）
+/// 当たり判定の領域更新（画像）
 /// </summary>
-/// <param name="chara">当たり判定の領域</param>
-VOID CollUpdatePlayer(CHARACTOR* chara)
+/// <param name="img">画像構造体のポインタ</param>
+VOID CollUpdateImage(IMAGE* img)
 {
-	chara->coll.left = chara->img.x;					//当たり判定を微調整
-	chara->coll.top = chara->img.y;						//当たり判定を微調整
+	img->coll.left = img->x;
+	img->coll.top = img->y;
 
-	chara->coll.right = chara->img.x + chara->img.width - 50;		//当たり判定を微調整
-	chara->coll.bottom = chara->img.y + chara->img.height - 50;	//当たり判定を微調整
+	img->coll.right = img->x + img->width;
+	img->coll.bottom = img->y + img->height;
 
 	return;
 }
 
 /// <summary>
-/// 当たり判定の領域更新
+/// 当たり判定の領域更新（分割画像）
 /// </summary>
-/// <param name="chara">当たり判定の領域</param>
-VOID CollUpdate(CHARACTOR* chara)
+/// <param name="img">画像構造体のポインタ</param>
+VOID CollUpdateDivImage(DIVIMAGE* div)
 {
-	chara->coll.left = chara->img.x;
-	chara->coll.top = chara->img.y;
+	div->coll.left = div->x;
+	div->coll.top = div->y;
 
-	chara->coll.right = chara->img.x + chara->img.width;
-	chara->coll.bottom = chara->img.y + chara->img.height;
+	div->coll.right = div->x + div->width;
+	div->coll.bottom = div->y + div->height;
 
 	return;
 }
@@ -588,4 +581,397 @@ BOOL OnCollRect(RECT a, RECT b)
 		//あたっていないとき
 		return FALSE;
 	}
+}
+
+
+/// <summary>
+/// 画像を分割してメモリに読み込み
+/// </summary>
+/// <param name="handle">ハンドル配列の先頭アドレス</param>
+/// <param name="path">画像のパス</param>
+/// <param name="bunkatuYoko">分割するときの横の数</param>
+/// <param name="bunkatuTate">分割するときの縦の数</param>
+/// <returns></returns>
+BOOL LoadImageDivMem(DIVIMAGE* div, const char* path, int bunkatuYoko, int bunkatuTate)
+{
+	int IsLoad = -1;	//画像が読み込みたか？
+
+	//一時的に画像のハンドルを用意する
+	int TempHandle = LoadGraph(path);
+
+	//読み込みエラー
+	if (TempHandle == -1)
+	{
+		MessageBox(
+			GetMainWindowHandle(),	//ウィンドウハンドル
+			path,					//本文
+			"画像読み込みエラー",	//タイトル
+			MB_OK					//ボタン
+		);
+
+		return FALSE;	//読み込み失敗
+	}
+
+	//画像の幅と高さを取得
+	int Width = -1;		//幅
+	int Height = -1;	//高さ
+	GetGraphSize(TempHandle, &Width, &Height);
+
+	//分割して読み込み
+	IsLoad = LoadDivGraph(
+		path,							//画像のパス
+		bunkatuYoko * bunkatuTate,		//分割総数
+		bunkatuYoko, bunkatuTate,					//横の分割,縦の分割
+		Width / bunkatuYoko, Height / bunkatuTate,	//画像1つ分の幅,高さ
+		div->handle									//連続で管理する配列の先頭アドレス
+	);
+
+	//分割エラー
+	if (IsLoad == -1)
+	{
+		MessageBox(
+			GetMainWindowHandle(),	//ウィンドウハンドル
+			path,					//本文
+			"画像分割エラー",		//タイトル
+			MB_OK					//ボタン
+		);
+
+		return FALSE;	//読み込み失敗
+	}
+
+	//情報を設定
+	div->DivYoko = bunkatuYoko;
+	div->DivTate = bunkatuTate;
+	div->DivMax = div->DivYoko * div->DivTate;
+	div->x = 0;
+	div->y = 0;
+	GetGraphSize(div->handle[0], &div->width, &div->height);
+	div->AnimCnt = 0;
+	div->IsAnimLoop = FALSE;
+	div->nowIndex = 0;
+
+	//当たり判定の更新
+	CollUpdateDivImage(div);
+
+	//画像を描画する
+	div->IsDraw = TRUE;
+
+	//一時的に読み込んだハンドルを解放
+	DeleteGraph(TempHandle);
+
+	return TRUE;
+}
+
+/// <summary>
+/// 画像をメモリに読み込み
+/// </summary>
+/// <param name="image">画像構造体のアドレス</param>
+/// <param name="path">画像のパス</param>
+/// <returns></returns>
+BOOL LoadImageMem(IMAGE* image, const char* path)
+{
+	//ゴールの画像を読み込み
+	strcpyDx(image->path, path);			//パスのコピー
+	image->handle = LoadGraph(image->path);	//画像の読み込み
+
+	//画像が読み込めなかったときは、エラー(-1)が入る
+	if (image->handle == -1)
+	{
+		MessageBox(
+			GetMainWindowHandle(),	//メインのウィンドウハンドル
+			image->path,			//メッセージ本文
+			"画像読み込みエラー！",	//メッセージタイトル
+			MB_OK					//ボタン
+		);
+
+		return FALSE;	//読み込み失敗
+	}
+
+	//画像の幅と高さを取得
+	GetGraphSize(image->handle, &image->width, &image->height);
+
+	//画像の位置を初期化
+	image->x = 0; image->y = 0;
+
+	//当たり判定の更新
+	CollUpdateImage(image);
+
+	//画像を描画する
+	image->IsDraw = TRUE;
+
+	//読み込めた
+	return TRUE;
+}
+
+/// <summary>
+/// 画像描画
+/// </summary>
+/// <param name="image">描画する画像構造体</param>
+/// <returns></returns>
+/// <returns></returns>
+VOID DrawImage(IMAGE image)
+{
+	//画像が描画できるときは
+	if (image.IsDraw == TRUE)
+	{
+		DrawGraph(image.x, image.y, image.handle, TRUE);
+	}
+
+	//デバッグモードのときは
+	if (GAME_DEBUG == TRUE)
+	{
+		//当たり判定を描画
+		DrawRect(image.coll, GetColor(255, 255, 255), FALSE);
+	}
+	return;
+}
+
+/// <summary>
+/// 分割画像の描画
+/// </summary>
+/// <param name="image">描画する画像構造体</param>
+/// <returns></returns>
+/// <returns></returns>
+VOID DrawDivImage(DIVIMAGE* image)
+{
+	//画像が描画できるときは
+	if (image->IsDraw == TRUE)
+	{
+		DrawGraph(image->x, image->y, image->handle[image->nowIndex], TRUE);
+
+		//アニメーションのカウントアップ
+		if (image->AnimCnt < image->AnimCntMAX) { image->AnimCnt++; }
+		else
+		{
+			//すべてのアニメーションを描画し終わったら
+			if (image->nowIndex == image->DivMax - 1)
+			{
+				//アニメーションを繰り返さないならば
+				if (image->IsAnimLoop == FALSE)
+				{
+					image->IsDraw = FALSE;	//描画を止める
+				}
+				image->AnimCnt = 0;		//カウンタ0クリア
+				image->nowIndex = 0;	//先頭に戻す
+			}
+			//次の分割画像があるときは
+			else if (image->nowIndex < image->DivMax - 1)
+			{
+				image->nowIndex++; //次の画像へ
+			}
+			image->AnimCnt = 0;	//カウンタ0クリア
+		}
+	}
+
+	//デバッグモードのときは
+	if (GAME_DEBUG == TRUE)
+	{
+		//当たり判定を描画
+		DrawRect(image->coll, GetColor(255, 255, 255), FALSE);
+	}
+	return;
+}
+
+/// <summary>
+/// 分割画像の描画(キャラなど)
+/// </summary>
+/// <param name="image">描画する画像構造体</param>
+/// <returns></returns>
+/// <returns></returns>
+VOID DrawDivImageChara(DIVIMAGE* image)
+{
+	//画像が描画できるときは
+	if (image->IsDraw == TRUE)
+	{
+		DrawGraph(image->x, image->y, image->handle[image->nowIndex], TRUE);
+
+		//アニメーションのカウントアップ
+		if (image->AnimCnt < image->AnimCntMAX) { image->AnimCnt++; }
+		else
+		{
+
+			//右向きのとき(画像によって数字が違うので、合わせること！)
+			if (muki == muki_migi)
+			{
+				if (image->nowIndex >= 6 && image->nowIndex < 8)
+				{
+					image->nowIndex++;
+				}
+				else
+				{
+					image->nowIndex = 6;
+				}
+			}
+
+			//左向きのとき(画像によって数字が違うので、合わせること！)
+			if (muki == muki_hidari)
+			{
+				if (image->nowIndex >= 3 && image->nowIndex < 5)
+				{
+					image->nowIndex++;
+				}
+				else
+				{
+					image->nowIndex = 3;
+				}
+			}
+
+			//上向きのとき(画像によって数字が違うので、合わせること！)
+			if (muki == muki_ue)
+			{
+				if (image->nowIndex >= 9 && image->nowIndex < 11)
+				{
+					image->nowIndex++;
+				}
+				else
+				{
+					image->nowIndex = 9;
+				}
+			}
+
+			//下向きのとき(画像によって数字が違うので、合わせること！)
+			if (muki == muki_shita)
+			{
+				if (image->nowIndex >= 0 && image->nowIndex < 2)
+				{
+					image->nowIndex++;
+				}
+				else
+				{
+					image->nowIndex = 0;
+				}
+			}
+
+			//向き無しのときは、直前の向きの真ん中の画像にする(画像に合わせて決めてネ)
+			if (muki == muki_none)
+			{
+				if (image->nowIndex >= 6 && image->nowIndex <= 8) { image->nowIndex = 7; }
+				if (image->nowIndex >= 3 && image->nowIndex <= 5) { image->nowIndex = 4; }
+				if (image->nowIndex >= 9 && image->nowIndex <= 11) { image->nowIndex = 10; }
+				if (image->nowIndex >= 0 && image->nowIndex <= 2) { image->nowIndex = 1; }
+			}
+
+			image->AnimCnt = 0;	//カウンタ0クリア
+		}
+	}
+
+	//デバッグモードのときは
+	if (GAME_DEBUG == TRUE)
+	{
+		//当たり判定を描画
+		DrawRect(image->coll, GetColor(255, 255, 255), FALSE);
+	}
+	return;
+}
+
+/// <summary>
+/// 音楽をメモリに読み込み
+/// </summary>
+/// <param name="audio">Audio構造体変数のアドレス</param>
+/// <param name="path">Audioの音楽パス</param>
+/// <param name="volume">ボリューム</param>
+/// <param name="playType">DX_PLAYTYPE_LOOP or DX_PLAYTYPE_BACK</param>
+/// <returns></returns>
+BOOL LoadAudio(AUDIO* audio, const char* path, int Volume, int playType)
+{
+	//音楽の読み込み
+	strcpyDx(audio->path, path);					//パスのコピー
+	audio->handle = LoadSoundMem(audio->path);		//音楽の読み込み
+
+	//音楽が読み込めなかったときは、エラー(-1)が入る
+	if (audio->handle == -1)
+	{
+		MessageBox(
+			GetMainWindowHandle(),	//メインのウィンドウハンドル
+			audio->path,			//メッセージ本文
+			"音楽読み込みエラー！",		//メッセージタイトル
+			MB_OK					//ボタン
+		);
+
+		return FALSE;	//読み込み失敗
+	}
+
+	//その他の設定
+	audio->Volume = Volume;
+	audio->playType = playType;
+
+	return TRUE;
+}
+
+/// <summary>
+/// 音楽再生
+/// </summary>
+/// <param name="audio">再生する音楽構造体</param>
+/// <returns></returns>
+VOID PlayAudio(AUDIO audio)
+{
+	//ループ再生でなければ、そのまま再生する
+	if (audio.playType == DX_PLAYTYPE_BACK)
+	{
+		PlaySoundMem(audio.handle, audio.playType);//音楽の再生
+	}
+	//ループ再生のときは、音楽が再生されていなければ、再生する
+	else if (audio.playType == DX_PLAYTYPE_LOOP)
+	{
+		if (CheckSoundMem(audio.handle) == 0)
+		{
+			PlaySoundMem(audio.handle, audio.playType);//音楽の再生
+		}
+	}
+
+	return;
+}
+
+/// <summary>
+/// 音楽のボリューム取得
+/// </summary>
+/// <param name="audio">取得する音楽構造体</param>
+/// <param name = "volume">ボリューム(0～255)</param>
+/// <returns></returns>
+int GetVolumeAudio(AUDIO audio)
+{
+	//音量を取得
+	return audio.Volume;
+}
+
+/// <summary>
+/// 音楽のボリューム設定
+/// </summary>
+/// <param name="audio">設定する音楽構造体</param>
+/// <param name = "volume">ボリューム(0～255)</param>
+/// <returns></returns>
+VOID SetVolumeAudio(AUDIO* audio, int vol)
+{
+	//音量を設定
+	audio->Volume = vol;
+	ChangeVolumeSoundMem(audio->Volume, audio->handle);
+
+	return;
+}
+
+/// <summary>
+/// 音楽のボリューム変更
+/// </summary>
+/// <param name="audio">変更する音楽構造体</param>
+/// <param name = "volume">ボリューム(0～255)</param>
+/// <returns></returns>
+VOID ChangeVolumeAudio(AUDIO* audio, int vol)
+{
+	//音量を設定（構造体のボリュームは変更しない）
+	ChangeVolumeSoundMem(vol, audio->handle);
+
+	return;
+}
+
+/// <summary>
+/// 音楽停止
+/// </summary>
+/// <param name="audio">停止する音楽構造体</param>
+/// <returns></returns>
+VOID StopAudio(AUDIO* audio)
+{
+	//音楽の停止
+	StopSoundMem(audio->handle);
+
+	return;
 }

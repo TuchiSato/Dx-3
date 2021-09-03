@@ -1,6 +1,6 @@
 //キーボードのソースファイル
 
-//ヘッダーファイル読み込み
+//ヘッダファイル読み込み
 #include "keyboard.h"
 
 //グローバル変数
@@ -28,7 +28,7 @@ VOID AllKeyUpdate(VOID)
 		//キーコードを押しているとき
 		if (keyboard.TempKeyState[i] != 0)
 		{
-			keyboard.AllKeyState[i]++;		//	押している時間を加算
+			keyboard.AllKeyState[i]++;		//押している時間を加算
 		}
 		else
 		{
@@ -60,12 +60,12 @@ BOOL KeyDown(int KEY_INPUT_)
 /// キーを上げているか、キーコードで判断する
 /// </summary>
 /// <param name="KEY_INPUT_">キーコード</param>
-/// <returns>押していたらTRUE</returns>
+/// <returns>上げていたらTRUE</returns>
 BOOL KeyUp(int KEY_INPUT_)
 {
 	if (
 		keyboard.OldAllKeyState[KEY_INPUT_] != 0	//以前は押していた
-		&& keyboard.AllKeyState[KEY_INPUT_] != 0	//現在は押していない
+		&& keyboard.AllKeyState[KEY_INPUT_] == 0	//現在は押していない
 		)
 	{
 		return TRUE;
@@ -85,7 +85,7 @@ BOOL KeyClick(int KEY_INPUT_)
 {
 	if (
 		keyboard.OldAllKeyState[KEY_INPUT_] != 0	//以前は押していた
-		&& keyboard.AllKeyState[KEY_INPUT_] != 0	//現在は押していない
+		&& keyboard.AllKeyState[KEY_INPUT_] == 0	//現在は押していない
 		)
 	{
 		return TRUE;
@@ -104,11 +104,11 @@ BOOL KeyClick(int KEY_INPUT_)
 /// <returns></returns>
 BOOL KeyDownKeep(int KEY_INPUT_, int MilliTime)
 {
-	//1秒は1000ミリ秒
+	//１秒は1000ミリ秒
 	float MilliSec = 1000.0f;
 
-	//押し続けている時間は、ミリ秒×FPS値
-	//例）1500ミリ秒押す/1000ミリ　→　1.5秒×60FPS ＝ 90
+	//押し続けている時間は、ミリ秒数×FPS値
+	//例）1500ミリ秒押す/1000ミリ　→　1.5秒×60FPS = 90
 	int UpdateTime = (MilliTime / MilliSec) * 60;
 
 	if (keyboard.AllKeyState[KEY_INPUT_] > UpdateTime)
