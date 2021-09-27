@@ -5,6 +5,7 @@
 #include "mouse.h"		//マウスの処理
 #include "shape.h"		//図形の処理
 #include "font.h"		//フォントの処理
+#include "Data.h"		//データの処理
 
 //独自のマクロ定義
 
@@ -249,6 +250,18 @@ BOOL GameLoad(VOID)
 	//フォント作成
 	if (FontCreate() == FALSE) { FALSE; }
 
+	//サンプル敵データを読み込み
+	if (LoadCSVChara(CSV_PATH_ENEMY, &enemy[0], ENEMY_MAX, TRUE) == FALSE) { return FALSE; }
+
+	//サンプル敵データを読み込み
+	if (LoadCSVChara(CSV_PATH_ENEMY, &enemy[0], ENEMY_MAX, TRUE) == FALSE) { return FALSE; }
+
+	//サンプル敵データを読み込み
+	if (LoadCSVChara(CSV_PATH_ENEMY, &enemy[0], ENEMY_MAX, TRUE) == FALSE) { return FALSE; }
+
+	//サンプルスコアデータを読み込み
+	if (LoadScoreData(SCORE_DATA_PATH, &score_data, TRUE) == FALSE) { return FALSE; }
+
 	return TRUE;	//全て読み込みた！
 }
 
@@ -320,6 +333,24 @@ VOID Title(VOID)
 /// </summary>
 VOID TitleProc(VOID)
 {
+	//セーブデータ系サンプル
+	{
+		//セーブデータ削除サンプル
+		if (KeyDown(KEY_INPUT_Q)) { DeleteScoreData(); }
+
+		//セーブデータ保存サンプル
+		if (KeyDown(KEY_INPUT_E))
+		{
+			//スコアデータを適当に設定
+			score_data, Score1 = (int)GetGameTime();
+
+			//スコアデータの並び替えしながら・・・
+
+			//スコアデータ保存
+			SaveScoreData();
+		}
+	}
+
 	if (KeyClick(KEY_INPUT_RETURN) == TRUE)
 	{
 		//シーン切り替え
@@ -384,6 +415,11 @@ VOID TitleDraw(VOID)
 	//フォントのサンプル
 	DrawStringToHandle(600, 100, "ノスタルドットだよ", GetColor(0, 0, 0), sampleFont2.handle);
 
+	//読み込んだデータを描画
+	for (int i = 0; i < ENEMY_MAX; i++)
+	{
+		DrawFormatString(300, 300 + i * 20, GetColor(0, 0, 0), "%s", enemy[i].Name);
+	}
 
 	DrawString(0, 0, "タイトル画面", GetColor(0, 0, 0));
 	return;
