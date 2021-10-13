@@ -51,9 +51,6 @@
   <ItemGroup>
     <None Include="Data\enemy.csv" />
   </ItemGroup>
-  <ItemGroup>
-    <Library Include="Data\score.a" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

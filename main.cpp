@@ -262,6 +262,19 @@ BOOL GameLoad(VOID)
 	//サンプルスコアデータを読み込み
 	if (LoadScoreData(SCORE_DATA_PATH, &score_data, TRUE) == FALSE) { return FALSE; }
 
+	//サンプルマップデータを読み込み
+	if (LoadCSVMap(
+		IMG_PATH_MAP1,
+		CSV_PATH_MAP1_SHITA,
+		CSV_PATH_MAP1_NAKA,
+		CSV_PATH_MAP1_NAKA_ATARI,
+		CSV_PATH_MAP1_UE,
+		&map1,
+		MAP1_YOKO_DIV, MAP1_TATE_DIV
+	) == FALSE) {
+		return FALSE;
+	}
+
 	return TRUE;	//全て読み込みた！
 }
 
@@ -342,7 +355,7 @@ VOID TitleProc(VOID)
 		if (KeyDown(KEY_INPUT_E))
 		{
 			//スコアデータを適当に設定
-			score_data, Score1 = (int)GetGameTime();
+			score_data.Score1 = (int)GetGameTime();
 
 			//スコアデータの並び替えしながら・・・
 
@@ -371,17 +384,39 @@ VOID TitleProc(VOID)
 	PlayAudio(sampleBGM);	//BGMを鳴らす
 
 	//プレイヤーの動作サンプル
-	{
+	/* {
+		DIVIMAGE dummy = samplePlayerImg;
 		muki = muki_none;	//最初は向きを無しにする
 		if (KeyDown(KEY_INPUT_W)) { muki = muki_ue; samplePlayerImg.y--; }
 		else if (KeyDown(KEY_INPUT_S)) { muki = muki_shita; samplePlayerImg.y++; }
 		if (KeyDown(KEY_INPUT_A)) { muki = muki_hidari; samplePlayerImg.x--; }
 		else if (KeyDown(KEY_INPUT_D)) { muki = muki_migi; samplePlayerImg.x++; }
-		CollUpdateDivImage(&samplePlayerImg);	//当たり判定の更新
+		CollUpdateDivImage(&dummy);	//当たり判定の更新
+	}*/
+
+	//マップの当たり判定を考慮
+	{
+		muki = muki_none;	//最初は向きを無しにする
+		DIVIMAGE dummy = samplePlayerImg;
+
+		if (KeyDown(KEY_INPUT_W)) { muki = muki_ue; dummy.y--; }
+		else if (KeyDown(KEY_INPUT_S)) { muki = muki_shita; dummy.y++; }
+		if (KeyDown(KEY_INPUT_A)) { muki = muki_hidari; dummy.x--; }
+		else if (KeyDown(KEY_INPUT_D)) { muki = muki_migi; dummy.x++; }
+
+		CollUpdateDivImage(&dummy);	//当たり判定の更新
+
+		if (CollMap(dummy.coll, map1) == FALSE)
+		{
+			samplePlayerImg = dummy;	//ダミーの情報を戻す
+		}
+		
 	}
 
 	return;
 }
+
+int size = 0;
 
 /// <summary>
 /// タイトル画面の描画
@@ -420,6 +455,9 @@ VOID TitleDraw(VOID)
 	{
 		DrawFormatString(300, 300 + i * 20, GetColor(0, 0, 0), "%s", enemy[i].Name);
 	}
+	DrawMap(map1);
+
+
 
 	DrawString(0, 0, "タイトル画面", GetColor(0, 0, 0));
 	return;

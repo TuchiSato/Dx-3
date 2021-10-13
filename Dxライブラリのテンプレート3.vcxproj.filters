@@ -89,9 +89,4 @@
       <Filter>リソース ファイル</Filter>
     </None>
   </ItemGroup>
-  <ItemGroup>
-    <Library Include="Data\score.a">
-      <Filter>リソース ファイル</Filter>
-    </Library>
-  </ItemGroup>
 </Project>
